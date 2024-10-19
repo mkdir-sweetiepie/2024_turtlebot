@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/hyeon/ros2_ws/install/turtlebot3_msgs/include/**",
+        "/home/hyeon/ros2_ws/install/robit_msgs/include/**",
+        "/home/hyeon/ros2_ws/install/image_recognition_msgs/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/hyeon/ros2_ws/src/2024_turtlebot/robit_master/include/**",
+        "/home/hyeon/ros2_ws/src/2024_turtlebot/robit_vision/include/**",
+        "/home/hyeon/ros2_ws/src/2024_turtlebot/set_imu/include/**",
+        "/home/hyeon/ros2_ws/src/2024_turtlebot/turtle_go/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

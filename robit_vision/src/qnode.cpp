@@ -46,8 +46,8 @@ void QNode::initPubSub() {
   subPsd = node->create_subscription<std_msgs::msg::UInt16MultiArray>("robit_psd", 10, std::bind(&QNode::psdCallback, this, std::placeholders::_1));
   subButton = node->create_subscription<std_msgs::msg::Int8MultiArray>("robit_button", 10, std::bind(&QNode::buttonCallback, this, std::placeholders::_1));
   subImu = node->create_subscription<std_msgs::msg::UInt32>("set_imu", 10, std::bind(&QNode::imuCallback, this, std::placeholders::_1));
-  subBBX = node->create_subscription<image_recognition_msgs::msg::BoundingBoxMsgs>("/camera/image/yolo_bboxes", 10, std::bind(&QNode::bboxCallback, this, std::placeholders::_1));
-  subYoloImage = node->create_subscription<sensor_msgs::msg::Image>("/camera/image/yolo_output", 10, std::bind(&QNode::yoloImageCallback, this, std::placeholders::_1));
+  // subBBX = node->create_subscription<image_recognition_msgs::msg::BoundingBoxMsgs>("/camera/image/yolo_bboxes", 10, std::bind(&QNode::bboxCallback, this, std::placeholders::_1));
+  // subYoloImage = node->create_subscription<sensor_msgs::msg::Image>("/camera/image/yolo_output", 10, std::bind(&QNode::yoloImageCallback, this, std::placeholders::_1));
 }
 
 void QNode::initUdpSocket() {
@@ -93,17 +93,22 @@ void QNode::processReceivedImage(const cv::Mat& image) {
   }
 
   // cross
-  if (robit_vision.cross_start) {  // cross start
-    auto img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", image).toImageMsg();
-    pubImage->publish(*img_msg);
+  // if (robit_vision.cross_start) {  // cross start
+  //   auto img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", image).toImageMsg();
+  //   pubImage->publish(*img_msg);
+  // }
+
+  if (robit_vision.cross_start) {
+    robit_vision.Follow_bluesign(raw_img);
   }
+
   if (Vision::cross_step[0]) {
     Vision::cross_condition = 0;  // cross stop
   }
   if (Vision::cross_step[1]) {  // cross detect
-    if (robit_vision.cross_direction.load() == CrossDirection::LEFT) {
+    if (robit_vision.sign_condition[left]) {
       Vision::cross_condition = 1;
-    } else if (robit_vision.cross_direction.load() == CrossDirection::RIGHT) {
+    } else if (robit_vision.sign_condition[right]) {
       Vision::cross_condition = 2;
     }
   }
@@ -111,9 +116,9 @@ void QNode::processReceivedImage(const cv::Mat& image) {
     Vision::cross_condition = 3;  // Drive
   }
   if (Vision::cross_step[3]) {  // cross turn
-    if (robit_vision.cross_direction == CrossDirection::LEFT) {
+    if (robit_vision.sign_condition[left]) {
       Vision::cross_condition = 4;
-    } else if (robit_vision.cross_direction == CrossDirection::RIGHT) {
+    } else if (robit_vision.sign_condition[right]) {
       Vision::cross_condition = 5;
     }
   }
@@ -209,53 +214,53 @@ cv::Mat QNode::getLatestImage() const {
 //     std::cout << "Direction decided: " << (new_direction == CrossDirection::LEFT ? "LEFT" : "RIGHT") << std::endl;
 //   }
 // }
-void QNode::bboxCallback(const image_recognition_msgs::msg::BoundingBoxMsgs::SharedPtr msg) {
-  static int direction_change_counter = 0;
-  static int last_direction = 0;
+// void QNode::bboxCallback(const image_recognition_msgs::msg::BoundingBoxMsgs::SharedPtr msg) {
+//   static int direction_change_counter = 0;
+//   static int last_direction = 0;
 
-  if (!robit_vision.direction_flag.load() && robit_vision.cross_start) {
-    int current_direction = 0;
-    if (msg->class_name == "left") {
-      robit_vision.direction_counter++;
-      current_direction = 1;
-    } else if (msg->class_name == "right") {
-      robit_vision.direction_counter--;
-      current_direction = -1;
-    }
+//   if (!robit_vision.direction_flag.load() && robit_vision.cross_start) {
+//     int current_direction = 0;
+//     if (msg->class_name == "left") {
+//       robit_vision.direction_counter++;
+//       current_direction = 1;
+//     } else if (msg->class_name == "right") {
+//       robit_vision.direction_counter--;
+//       current_direction = -1;
+//     }
 
-    // 방향이 변경되었는지 확인
-    if (current_direction != 0 && current_direction != last_direction) {
-      direction_change_counter++;
-      last_direction = current_direction;
-    }
-  }
+//     // 방향이 변경되었는지 확인
+//     if (current_direction != 0 && current_direction != last_direction) {
+//       direction_change_counter++;
+//       last_direction = current_direction;
+//     }
+//   }
 
-  if (std::abs(robit_vision.direction_counter) >= 60 || direction_change_counter >= 30) {
-    CrossDirection new_direction;
-    if (direction_change_counter >= 30) {
-      new_direction = CrossDirection::RIGHT;  // 방향이 자주 변경되면 오른쪽으로 판단
-    } else {
-      new_direction = (robit_vision.direction_counter > 0) ? CrossDirection::LEFT : CrossDirection::RIGHT;
-    }
-    robit_vision.cross_direction.store(new_direction);
-    robit_vision.direction_flag.store(true);
-    std::cout << "Direction decided: " << (new_direction == CrossDirection::LEFT ? "LEFT" : "RIGHT") << std::endl;
+//   if (std::abs(robit_vision.direction_counter) >= 60 || direction_change_counter >= 30) {
+//     CrossDirection new_direction;
+//     if (direction_change_counter >= 30) {
+//       new_direction = CrossDirection::RIGHT;  // 방향이 자주 변경되면 오른쪽으로 판단
+//     } else {
+//       new_direction = (robit_vision.direction_counter > 0) ? CrossDirection::LEFT : CrossDirection::RIGHT;
+//     }
+//     robit_vision.cross_direction.store(new_direction);
+//     robit_vision.direction_flag.store(true);
+//     std::cout << "Direction decided: " << (new_direction == CrossDirection::LEFT ? "LEFT" : "RIGHT") << std::endl;
 
-    // 결정 후 카운터 초기화
-    direction_change_counter = 0;
-    robit_vision.direction_counter = 0;
-  }
-}
-void QNode::yoloImageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
-  if (robit_vision.cross_start) {
-    try {
-      auto cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::RGB8);
-      Q_EMIT bluesignDetected(cv_ptr->image);
-    } catch (const cv_bridge::Exception& e) {
-      RCLCPP_ERROR(node->get_logger(), "cv_bridge exception: %s", e.what());
-    }
-  }
-}
+//     // 결정 후 카운터 초기화
+//     direction_change_counter = 0;
+//     robit_vision.direction_counter = 0;
+//   }
+// }
+// void QNode::yoloImageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
+//   if (robit_vision.cross_start) {
+//     try {
+//       auto cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::RGB8);
+//       Q_EMIT bluesignDetected(cv_ptr->image);
+//     } catch (const cv_bridge::Exception& e) {
+//       RCLCPP_ERROR(node->get_logger(), "cv_bridge exception: %s", e.what());
+//     }
+//   }
+// }
 
 void QNode::updateParameter(const std::shared_ptr<const robit_msgs::msg::MasterMsg>& master_data) { robit_vision.update_parameter(master_data); }
 

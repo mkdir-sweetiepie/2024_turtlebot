@@ -23,8 +23,8 @@ void MainWindow::closeEvent(QCloseEvent* event) { QMainWindow::closeEvent(event)
 MainWindow::~MainWindow() { delete ui; }
 
 void MainWindow::on_On_clicked() {
-  system("gnome-terminal --geometry=80x18+0+300 -- bash -c 'ros2 launch yolov8_detection yolov8_detection_launch.py'");
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // system("gnome-terminal --geometry=80x18+0+300 -- bash -c 'ros2 launch yolov8_detection yolov8_detection_launch.py'");
+  // std::this_thread::sleep_for(std::chrono::seconds(1));
 
   // set_imu를 위치 0,0에 크기 800x300으로 실행
   system("gnome-terminal --geometry=80x18+0+300 -- bash -c 'ros2 run set_imu set_imu; exec bash'");

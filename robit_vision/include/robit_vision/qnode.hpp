@@ -42,8 +42,8 @@ class QNode : public QThread {
   static constexpr int FPS_HISTORY_SIZE = 10;
   static constexpr int PSD_SENSORS = 3;
 
-  std::string packagePath = "/home/hyeon/ros2_ws/src/2024_turtlebot/robit_vision/robotis"; //robotis
-
+  std::string packagePath = "/home/hyeon/ros2_ws/src/2024_turtlebot/robit_vision/txt_data";  // robotis
+  enum { left, right };
  protected:
   void run() override;
 
@@ -78,15 +78,15 @@ class QNode : public QThread {
   void psdCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg);
   void buttonCallback(const std_msgs::msg::Int8MultiArray::SharedPtr msg);
   void imuCallback(const std_msgs::msg::UInt32::SharedPtr msg);
-  void bboxCallback(const image_recognition_msgs::msg::BoundingBoxMsgs::SharedPtr msg);
-  void yoloImageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+  // void bboxCallback(const image_recognition_msgs::msg::BoundingBoxMsgs::SharedPtr msg);
+  // void yoloImageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+
 
  Q_SIGNALS:
   void rosShutdown();
   void imageReceived(const cv::Mat& image);
   void ledReceived();
   void fpsUpdated(int fps);
-  void bluesignDetected(const cv::Mat& image);
 
  public Q_SLOTS:
   void slotLed();

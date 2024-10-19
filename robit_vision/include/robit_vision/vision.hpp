@@ -25,7 +25,7 @@ extern const cv::Scalar Mint;
 }  // namespace vision_colors
 
 enum class MissionType { CROSS, CONSTRUCT, PARKING, ZIGZAG, GATEBAR, TUNNEL };
-enum class CrossDirection { NONE, LEFT, RIGHT };
+// enum class CrossDirection { NONE, LEFT, RIGHT };
 
 class Vision : public QObject {
   Q_OBJECT
@@ -72,10 +72,10 @@ class Vision : public QObject {
   static bool cross_step[5];
 
   bool cross_start;
-  int direction_counter;
+  // int direction_counter;
 
-  std::atomic<bool> direction_flag;
-  std::atomic<CrossDirection> cross_direction;
+  // std::atomic<bool> direction_flag;
+  // std::atomic<CrossDirection> cross_direction;
 
   // construct
   static bool construct_detect;
@@ -96,6 +96,20 @@ class Vision : public QObject {
   static int white_box_cnt;
   static unsigned long escape_standard;
 
+  void Follow_bluesign(cv::Mat &input_img);
+  cv::Mat bluesign_img, gray_img;
+  static unsigned long beforeMax, nowMax, nowMax_i;
+  static int right_count, left_count;
+  bool cross_detect_once;
+  bool bluesign_detect;
+  bool sign_condition[2];
+  int sign_count[2];
+  int blue_x, blue_y;
+  int sign_state;
+  std::string sign_value;
+  enum { left, right };
+  static bool sign_once, sign_twice, cross_flag, process_flag[3], direction, follow_bluesign;
+
  Q_SIGNALS:
   void perspective_callback(const cv::Mat &perspective_img);
   void perspective_callback2(const cv::Mat &perspective_img2);
@@ -104,6 +118,7 @@ class Vision : public QObject {
   void mission_callback();
   void traffic_callback(const cv::Mat &traffic_img);
   void gatebar_callback(const cv::Mat &gatebar_img);
+  void bluesignDetected(const cv::Mat &image);
 
  private:
   cv::Mat Raw_image, Perspective_img, Perspective_img2;

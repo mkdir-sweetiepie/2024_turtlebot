@@ -24,7 +24,6 @@ void MainWindow::setupConnections() {
   connect(qnode.get(), &QNode::rosShutdown, this, &MainWindow::close);
   connect(qnode.get(), &QNode::fpsUpdated, this, &MainWindow::updateFps);
   connect(qnode.get(), &QNode::imageReceived, this, &MainWindow::updateImage);
-  connect(qnode.get(), &QNode::bluesignDetected, this, &MainWindow::updateBluesignImg);
 
   QTimer* timer = new QTimer(this);
   connect(timer, &QTimer::timeout, this, &MainWindow::updateTimer);
@@ -36,6 +35,8 @@ void MainWindow::setupConnections() {
   connect(&qnode->robit_vision, &Vision::white_line_callback, this, &MainWindow::updateWhiteEdgeImg);
   connect(&qnode->robit_vision, &Vision::yellow_line_callback, this, &MainWindow::updateYellowEdgeImg);
   connect(&qnode->robit_vision, &Vision::traffic_callback, this, &MainWindow::updateTrafficImg);
+  connect(&qnode->robit_vision, &Vision::bluesignDetected, this, &MainWindow::updateBluesignImg);
+
   connect(&qnode->robit_vision, &Vision::gatebar_callback, this, &MainWindow::updateGatebarImg);
 }
 
@@ -107,7 +108,7 @@ void MainWindow::updateTrafficImg(const cv::Mat& traffic_img) {
 void MainWindow::updateBluesignImg(const cv::Mat& bluesign_img) {
   cv::Mat resized;
   cv::resize(bluesign_img, resized, cv::Size(320, 240));
-  QImage qimage((const unsigned char*)(resized.data), resized.cols, resized.rows, QImage::Format_RGB888);
+  QImage qimage((const unsigned char*)(resized.data), resized.cols, resized.rows, QImage::Format_Indexed8);
   ui->label_bluesign->setPixmap(QPixmap::fromImage(qimage));
 }
 

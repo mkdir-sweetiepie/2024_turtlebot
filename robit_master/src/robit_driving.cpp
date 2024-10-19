@@ -533,11 +533,11 @@ void RobitDriving::parkingMotion() {
       break;
     case GO_P2:
       std::cout << "Parking detect_2" << std::endl;
-      lineTracing(0.1);
+      setSpeed(0.2, 0);
       break;
     case LEFT_P1:
       std::cout << "Parking left" << std::endl;
-      setSpeed(0.1, 0.1);
+      setSpeed(0.0, -0.3);
       break;
     case GO_P3:
       std::cout << "Parking linetracing" << std::endl;

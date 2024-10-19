@@ -35,7 +35,18 @@ bool cross_start = false;
 int direction_counter = 0;
 bool Vision::cross_step[5] = {false, false, false, false, false};
 // CrossDirection Vision::cross_direction = CrossDirection::NONE;
+unsigned long Vision::beforeMax = 0;
+unsigned long Vision::nowMax = 0;
+unsigned long Vision::nowMax_i = 0;
 
+bool Vision::direction = false;
+bool Vision::follow_bluesign = false;  //= true;//
+int Vision::left_count = 0;
+int Vision::right_count = 0;
+bool Vision::process_flag[3] = {false, false, false};
+bool Vision::sign_once = false;
+bool Vision::sign_twice = false;
+bool Vision::cross_flag = false;
 // construct
 bool Vision::construct_detect = false;
 int Vision::construct_condition = 0;
@@ -71,7 +82,7 @@ int VisionLine::yellow_value[6] = {0}, VisionLine::white_value[6] = {0};
 int VisionLine::Canny_value[2] = {0};
 int VisionLine::cross_yellow_y = 0;
 
-Vision::Vision(QObject *parent) : QObject(parent), direction_flag(false), cross_direction(CrossDirection::NONE) {}
+Vision::Vision(QObject *parent) : QObject(parent) {}
 
 Vision::~Vision() {}
 
@@ -206,11 +217,10 @@ void Vision::Retry_Button() {
     cross_detect = false;
     cross_condition = 0;
     cross_start = false;
-    direction_flag = false;
+
     for (int i = 0; i < 4; ++i) {
       cross_step[i] = false;
     }
-    Vision::cross_direction = CrossDirection::NONE;
   }
 
   if (retry <= mission_sequence[M_CONSTRUCT]) {
@@ -319,18 +329,25 @@ void Vision::Cross_Process() {
       break;
 
     case CrossCondition::BLUE_SIGN_DETECTING:
-      if (direction_flag.load()) {
-        update_led(2);
-        CrossDirection current_direction = cross_direction.load();
-        if (current_direction == CrossDirection::LEFT) {
-          cross_condition = CrossCondition::TURN_LEFT;
-          cross_step[1] = true;
-        } else if (current_direction == CrossDirection::RIGHT) {
-          cross_condition = CrossCondition::TURN_RIGHT;
-          cross_step[1] = true;
-        }
-        std::cout << "Direction set in Cross_Process: " << (current_direction == CrossDirection::LEFT ? "LEFT" : "RIGHT") << std::endl;
+
+      update_led(2);
+      if (sign_condition[right]) {
+        cross_condition = CrossCondition::TURN_RIGHT;
+        cross_step[1] = true;
+      } else if (sign_condition[left]) {
+        cross_condition = CrossCondition::TURN_LEFT;
+        cross_step[1] = true;
       }
+      // CrossDirection current_direction = cross_direction.load();
+      // if (current_direction == CrossDirection::LEFT) {
+      //   cross_condition = CrossCondition::TURN_LEFT;
+      //   cross_step[1] = true;
+      // } else if (current_direction == CrossDirection::RIGHT) {
+      //   cross_condition = CrossCondition::TURN_RIGHT;
+      //   cross_step[1] = true;
+      // }
+      // std::cout << "Direction set in Cross_Process: " << (current_direction == CrossDirection::LEFT ? "LEFT" : "RIGHT") << std::endl;
+
       break;
 
     case CrossCondition::TURN_LEFT:
@@ -338,7 +355,11 @@ void Vision::Cross_Process() {
       cross_step[0] = false;
       cross_step[1] = false;
 
-      std::cout << (cross_direction == CrossDirection::LEFT ? "Left" : "Right") << std::endl;
+      if (sign_condition[right])
+        std::cout << "Right" << std::endl;
+      else if (sign_condition[left])
+        std::cout << "Left" << std::endl;
+
       if ((rel_angle >= 130) || (rel_angle <= 30)) {
         update_led(3);
 
@@ -348,12 +369,15 @@ void Vision::Cross_Process() {
       break;
     case CrossCondition::DRIVE:
       std::cout << "Drive" << std::endl;
-      if ((cross_direction == CrossDirection::LEFT && ((rel_angle < 60 && rel_angle > 1) && (!VisionLine::l_line_detect))) ||
-          (cross_direction == CrossDirection::RIGHT && ((rel_angle >= 140 && rel_angle <= 190) && (!VisionLine::r_line_detect)))) {
+      if ((sign_condition[left] && ((rel_angle < 60 && rel_angle > 1) && (!VisionLine::l_line_detect))) ||
+          (sign_condition[right] && ((rel_angle >= 140 && rel_angle <= 190) && (!VisionLine::r_line_detect)))) {
         update_led(4);
         cross_step[3] = true;
-        std::cout << "Cross end " << (cross_direction == CrossDirection::LEFT ? "left" : "right") << std::endl;
-        cross_condition = (cross_direction == CrossDirection::LEFT) ? CrossCondition::CROSS_END_LEFT : CrossCondition::CROSS_END_RIGHT;
+
+        if (sign_condition[right])
+          cross_condition = CrossCondition::CROSS_END_RIGHT;
+        else if (sign_condition[left])
+          cross_condition = CrossCondition::CROSS_END_LEFT;
       }
       break;
     case CrossCondition::CROSS_END_LEFT:
@@ -368,6 +392,169 @@ void Vision::Cross_Process() {
       now_mission++;
       std::cout << "Cross completed" << std::endl;
       break;
+  }
+}
+
+void Vision::Follow_bluesign(cv::Mat &input_img) {
+  const int blue_img_y = 0;
+  bluesign_img = input_img(cv::Rect(0, blue_img_y, 640, 200)).clone();  // 0,0 320, 140
+  Change_to_Binary(bluesign_img, bluesign_img, bluesign_value, 0);
+  gray_img = bluesign_img.clone();
+  Q_EMIT bluesignDetected(bluesign_img);  // ui
+
+  VisionLabeling bluesign_labeling(bluesign_img, 900);  // threshold
+  bluesign_labeling.do_labeling();
+  // vision::beforeMax =0;
+  Vision::nowMax = 0;
+  Vision::nowMax_i = 0;
+
+  if (bluesign_labeling.blobs.size() > 0) {
+    bluesign_detect = true;
+
+    // 제일 큰 blobs를 찾아 이용함.
+    double theBiggest_x, theBiggest_y, theBiggest_width, theBiggest_height, start_L, start_R;
+    int Lsum(0), Rsum(0);
+    Vision::beforeMax = 0;
+    for (unsigned long i = 0; i < bluesign_labeling.blobs.size(); i++)  // blobs.size : num of blobs
+    {
+      if (beforeMax < (unsigned long)(bluesign_labeling.blobs[i].width * bluesign_labeling.blobs[i].height)) {
+        nowMax = (unsigned long)(bluesign_labeling.blobs[i].width * bluesign_labeling.blobs[i].height);
+        nowMax_i = i;
+      }
+      beforeMax = nowMax;
+    }
+    cv::Rect blue_rect(bluesign_labeling.blobs[nowMax_i]);
+    blue_rect.y += blue_img_y;
+    rectangle(input_img, blue_rect, vision_colors::Blue, 3);
+
+    theBiggest_x = bluesign_labeling.blobs[nowMax_i].x;
+    theBiggest_y = bluesign_labeling.blobs[nowMax_i].y;
+    theBiggest_width = bluesign_labeling.blobs[nowMax_i].width;
+    theBiggest_height = bluesign_labeling.blobs[nowMax_i].height;
+
+    blue_x = theBiggest_x + theBiggest_width / 2;                               // center point x
+    blue_y = theBiggest_y + blue_img_y + theBiggest_height / 2;                 // center point y
+    circle(input_img, cv::Point(blue_x, blue_y), 2, cv::Scalar(255, 0, 0), 2);  // show center point
+
+    // 표지판 일부만 보일때도 판정하기 위해 y축방향으로 표지판 중심을 찾음
+    int blue_right_y_bottom = -1, blue_left_y_bottom = -1, blue_right_y_top = -1, blue_left_y_top = -1;
+
+    for (int i = theBiggest_y + theBiggest_height; i > theBiggest_y; i--) {
+      if (gray_img.at<uchar>(i, theBiggest_x + 1) == 255) {
+        blue_left_y_bottom = i;
+        cv::line(input_img, cv::Point(blue_x, blue_left_y_bottom), cv::Point(theBiggest_x, blue_left_y_bottom), vision_colors::Red, 2);
+        break;
+      }
+    }
+    for (int i = theBiggest_y + theBiggest_height; i > theBiggest_y; i--) {
+      if (gray_img.at<uchar>(i, theBiggest_x + theBiggest_width - 1) == 255) {
+        blue_right_y_bottom = i;
+        cv::line(input_img, cv::Point(blue_x, blue_right_y_bottom), cv::Point(theBiggest_x + theBiggest_width, blue_right_y_bottom), vision_colors::Red, 2);
+        break;
+      }
+    }
+    for (int i = theBiggest_y; i < theBiggest_y + theBiggest_height; i++) {
+      if (gray_img.at<uchar>(i, theBiggest_x + 1) == 255) {
+        blue_left_y_top = i;
+        cv::line(input_img, cv::Point(blue_x, blue_left_y_top), cv::Point(theBiggest_x, blue_left_y_top), vision_colors::Yellow, 2);
+        break;
+      }
+    }
+    for (int i = theBiggest_y; i < theBiggest_y + theBiggest_height; i++) {
+      if (gray_img.at<uchar>(i, theBiggest_x + theBiggest_width - 1) == 255) {
+        blue_right_y_top = i;
+        cv::line(input_img, cv::Point(blue_x, blue_right_y_top), cv::Point(theBiggest_x + theBiggest_width, blue_right_y_top), vision_colors::Yellow, 2);
+        break;
+      }
+    }
+
+    if (blue_left_y_bottom < 0 || blue_right_y_bottom < 0 || blue_left_y_top < 0 || blue_right_y_top < 0) {
+      return;
+    }
+
+    int blue_middle_y((blue_left_y_bottom + blue_left_y_top + blue_right_y_bottom + blue_right_y_top) / 4);
+
+    line(input_img, cv::Point(theBiggest_x, blue_middle_y), cv::Point(theBiggest_x + theBiggest_width, blue_middle_y), vision_colors::Green, 2);
+    line(input_img, cv::Point(blue_x, theBiggest_y), cv::Point(blue_x, theBiggest_y + theBiggest_height), vision_colors::Green, 2);
+
+    start_L = theBiggest_x + theBiggest_width * 1 / 4;
+    start_R = theBiggest_x + theBiggest_width * 3 / 4;
+    int start_y((blue_middle_y + theBiggest_y + theBiggest_height) * 2 / 5), end_y((blue_middle_y + theBiggest_y + theBiggest_height) * 3 / 4.5);
+
+    line(input_img, cv::Point(theBiggest_x, start_y), cv::Point(theBiggest_x + theBiggest_width, start_y), vision_colors::Green, 2);
+    line(input_img, cv::Point(theBiggest_x, end_y), cv::Point(theBiggest_x + theBiggest_width, end_y), vision_colors::Green, 2);
+    line(input_img, cv::Point(start_R, theBiggest_y), cv::Point(start_R, theBiggest_y + theBiggest_height), vision_colors::Green, 2);
+    line(input_img, cv::Point(start_L, theBiggest_y), cv::Point(start_L, theBiggest_y + theBiggest_height), vision_colors::Green, 2);
+
+    // <┐ ┌>
+    // 흰 화살표의 아래 선 부분( ┐ ┌ )을 체크하여
+    // 왼쪽에 파란 부분이 있고 오른쪽에 흰 선이 있으면 <┐ : left
+    // 왼쪽에 흰 선이 있고 오른쪽에 파란 부분이 있으면 ┌> : right
+    if (!cross_detect_once && bluesign_labeling.blobs[nowMax_i].width > 40) {
+      for (double j = start_y; j < end_y; j++) {
+        for (double i = start_L; i < blue_x; i++) {
+          if ((gray_img.at<uchar>((int)j, (int)i)) < 150) {
+            // check black //white : 255 , black : 0
+            Lsum++;
+          }
+        }
+        for (double i = blue_x; i < start_R; i++) {
+          if ((gray_img.at<uchar>((int)j, (int)i)) < 150) {
+            // check black
+            Rsum++;
+          }
+        }
+      }
+
+      cv::Scalar color;
+      if (Lsum < Rsum) {
+        left_count++;
+        right_count = 0;
+        cv::line(input_img, cv::Point(110, 250), cv::Point(530, 250), vision_colors::Blue, 4, cv::LINE_AA);
+        cv::line(input_img, cv::Point(110, 250), cv::Point(160, 200), vision_colors::Blue, 4, cv::LINE_AA);
+        cv::line(input_img, cv::Point(110, 250), cv::Point(160, 300), vision_colors::Blue, 4, cv::LINE_AA);
+        if (left_count > 3) {
+          sign_count[left]++;
+          sign_value = "left";
+          color = cv::Scalar(0, 255, 0);
+          if (!process_flag[0] && sign_count[left] > 0 && !cross_detect_once) {
+            std::cout << "left detect" << std::endl;
+            cross_detect = true;
+            cross_detect_once = true;
+            sign_condition[left] = true;
+            direction = left;
+            process_flag[0] = true;
+
+            // cross_condition = turn_l1;
+            // setLed(1, 1, 1, 1, 1, 0);
+          }
+        }
+      } else if (Lsum > Rsum) {
+        right_count++;
+        left_count = 0;
+        cv::line(input_img, cv::Point(110, 250), cv::Point(530, 250), vision_colors::Blue, 4, cv::LINE_AA);
+        cv::line(input_img, cv::Point(530, 250), cv::Point(480, 200), vision_colors::Blue, 4, cv::LINE_AA);
+        cv::line(input_img, cv::Point(530, 250), cv::Point(480, 300), vision_colors::Blue, 4, cv::LINE_AA);
+        if (right_count > 3) {
+          sign_count[right]++;
+          sign_value = "right";
+          color = cv::Scalar(0, 0, 255);
+          if (!process_flag[0] && sign_count[right] > 0 && !cross_detect_once) {
+            std::cout << "right detect" << std::endl;
+
+            cross_detect = true;
+            cross_detect_once = true;
+            sign_condition[right] = true;
+            direction = right;
+            process_flag[0] = true;
+            // cross_condition = turn_r1;
+            // setLed(0, 1, 1, 1, 1, 1);
+          }
+        }
+      }
+    }
+  } else {
+    bluesign_detect = false;
   }
 }
 
@@ -483,40 +670,45 @@ void Vision::Construct_Process() {
 }
 
 void Vision::Parking_Process() {
-  static ParkingCondition parking_condition = ParkingCondition::GO_P1;
 
   auto update_led = [this](int led_index) { led[led_index] = false; };
+  static ParkingCondition parking_condition = ParkingCondition::GO_P1;
 
-  if (rel_angle >= 150 && rel_angle <= 200 && !parking_detect) {
-    rel_ctrl = false;
-    if (!rel_ctrl) {
-      rel_zero_angle = start_imu[M_PARKING];
-      rel_ctrl = true;
-      update_led(0);
-      parking_detect = true;
-    }
-  }
+  // if (rel_angle >= 150 && rel_angle <= 200 && !parking_detect) {
+  //   rel_ctrl = false;
+  //   if (!rel_ctrl) {
+  //     rel_zero_angle = start_imu[M_PARKING];
+  //     rel_ctrl = true;
+  //     update_led(0);
+  //     parking_detect = true;
+  //   }
+  // }
   if (parking_detect) {
     switch (parking_condition) {
       case ParkingCondition::GO_P1:
-        if (rel_round && (VisionLine::l_line_detect && VisionLine::r_line_detect)) {
-          update_led(1);
+        if (rel_round && !(VisionLine::l_line_detect )) {
+          
           parking_step[0] = true;
           std::cout << "parking detect_1" << std::endl;
-          parking_condition = ParkingCondition::GO_P2;
+          parking_condition = ParkingCondition::LEFT_P1;
+          cnt +=1;
         }
         break;
       case ParkingCondition::GO_P2:
         parking_detect = true;
         if ((parking_condition == ParkingCondition::GO_P2 && !(VisionLine::l_line_detect))) {
-          update_led(2);
+          update_led(1);
           std::cout << "parking detect_2" << std::endl;
           parking_step[1] = true;
-          parking_condition = ParkingCondition::LEFT_P1;
+          if(cnt ==1)
+            parking_condition = ParkingCondition::GO_P1;
+          else
+            parking_condition = ParkingCondition::LEFT_P1;
         }
         break;
       case ParkingCondition::LEFT_P1:
         if ((parking_condition == ParkingCondition::LEFT_P1) && ((rel_angle >= 60) && (rel_angle <= 80))) {
+          update_led(1);
           parking_step[2] = true;
           std ::cout << "Parking left" << std::endl;
           parking_condition = ParkingCondition::GO_P3;
