@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>robit_vision</name>
+  <version>0.1.0</version>
+  <description>
+
+    robit_vision
+
+  </description>
+  <maintainer email="hong091788@naver.com">hyeon</maintainer>
+  <author>hyeon</author>
+  <license>BSD</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>robit_msgs</build_depend>
+  <build_depend>image_recognition_msgs</build_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

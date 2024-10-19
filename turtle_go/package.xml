@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package>
+  <name>turtle_go</name>
+  <version>0.1.0</version>
+  <description>
+
+    turtle_go
+
+  </description>
+  <maintainer email="hong091788@naver.com">hyeon</maintainer>
+  <author>hyeon</author>
+  <license>BSD</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
