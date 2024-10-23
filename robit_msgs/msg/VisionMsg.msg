@@ -18,10 +18,11 @@ int32 construct_info
 bool parking_detect
 int32 parking_info
 ##zigzag
-bool slow_zone
 bool zigzag_detect
+bool zigzag_info
 ##gatebar
 bool gatebar_detect
+bool gatebar_go
 ##tunnel
 int32 just_before_tunnel_num
 

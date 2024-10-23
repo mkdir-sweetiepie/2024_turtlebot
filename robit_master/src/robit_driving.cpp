@@ -10,13 +10,12 @@ bool RobitDriving::start2024_ = false;
 int RobitDriving::cds_data_ = 0;
 int RobitDriving::direction_angle_ = 0;
 
-RobitDriving::RobitDriving() : button_click_(false), bar_count_(0), situation_(NONE), zigzag_starts_(false), tunnel_starts_(false), navi_on_(false), now_mission_(0) {
+RobitDriving::RobitDriving() : button_click_(false), bar_count_(0), situation_(NONE), tunnel_starts_(false), navi_on_(false), now_mission_(0) {
   master_msg_.traffic_done = false;
   master_msg_.cross_done = false;
   master_msg_.gatebar_done = false;
   master_msg_.parking_done = false;
   master_msg_.construct_done = false;
-  master_msg_.zigzag_done = false;
   master_msg_.tunnel_done = false;
   master_msg_.led_init = false;
 }
@@ -37,7 +36,7 @@ void RobitDriving::go() {
 
     switch (situation_) {
       case NONE:
-        lineTracing(0.24);
+        lineTracing(0.2);
 
         break;
       case CROSS:
@@ -50,10 +49,24 @@ void RobitDriving::go() {
         parkingMotion();
         break;
       case ZIGZAG:
-        zigzag_starts_ = true;
+        lineTracing(0.18);
+        std::cout << "Zigzag" << std::endl;
+        if (zigzag_info_ == 1) {
+          master_msg_.zigzag_done = true;
+          lineTracing(0.05);
+          std::cout << "zigzag done" << std::endl;
+        }
+
         break;
       case GATEBAR:
         bar_count_++;
+        lineTracing(0.05);
+        std::cout << "gatebar" << std::endl;
+        if (gatebar_condition_ == 0) {
+          setSpeed(0.0, 0.0);
+          std::cout << "gatebar done" << std::endl;
+        } else if(gatebar_condition_ )
+          lineTracing(0.2);
         break;
       default:
         break;
@@ -72,7 +85,10 @@ void RobitDriving::analyzeSituation() {
     situation_ = ZIGZAG;
   } else if (gatebar_detect_ && !master_msg_.gatebar_done) {
     situation_ = GATEBAR;
-  } else {
+  } else if (master_msg_.zigzag_done && gatebar_detect_ == 0) {
+    lineTracing(0.05);
+  }
+  else {
     situation_ = NONE;
   }
 }
@@ -96,13 +112,6 @@ void RobitDriving::retry() {
       master_msg_.parking_done = false;
       parking_condition_ = 0;
     }
-
-    // 지그재그 미션 재설정
-    if (Vision_msg_.retry <= mission_sequence_[ZIGZAG]) {
-      master_msg_.zigzag_done = false;
-      zigzag_starts_ = false;
-    }
-
     // 차단바 미션 재설정
     if (Vision_msg_.retry <= mission_sequence_[GATEBAR]) {
       master_msg_.gatebar_done = false;
@@ -151,10 +160,17 @@ void RobitDriving::updateParameters(const std::shared_ptr<const robit_msgs::msg:
   parking_detect_ = Vision_msg_.parking_detect;
   parking_info_ = Vision_msg_.parking_info;
   zigzag_detect_ = Vision_msg_.zigzag_detect;
-  slow_zone_ = Vision_msg_.slow_zone;
+  zigzag_info_ = Vision_msg_.zigzag_info;
   gatebar_detect_ = Vision_msg_.gatebar_detect;
+  gatebar_condition_ = Vision_msg_.gatebar_go;
   just_before_tunnel_num_ = Vision_msg_.just_before_tunnel_num;
 
+  // // 차단바 미션 진입하기 전에 일부러 천천히 달리는 조건문임. 너무 빨리 달리다가
+  // // 차단바 내려오면 반응 못하고 부딪힘.
+  // if (bar_count_ > 0 && !Vision_msg_.gatebar_detect && !master_msg_.gatebar_done) {
+  //   master_msg_.gatebar_done = true;
+  //   setSpeed(0.10, 0.0);
+  // 
   // IMU 관련 정보 업데이트
   rel_angle_ = Vision_msg_.rel_angle;
   rel_angle_ratio_ = Vision_msg_.rel_angle_ratio;
@@ -288,7 +304,7 @@ void RobitDriving::lineTracing2(double speed) {
       pixel_gap = -pixel_gap;
       pre_pixel_gap = pixel_gap;
 
-      angular_z = f2 * (pixel_gap * P_GAIN + (pixel_gap - pre_pixel_gap) * D_GAIN) + f1 * angular_z;
+      angular_z = f2 * (pixel_gap * P_GAIN2 + (pixel_gap - pre_pixel_gap) * D_GAIN2) + f1 * angular_z;
       if (angular_z > max_angle) {
         angular_z = max_angle;
       } else if (angular_z < -max_angle) {
@@ -307,7 +323,7 @@ void RobitDriving::lineTracing2(double speed) {
       pixel_gap = -pixel_gap;
       pre_pixel_gap = -pixel_gap;
 
-      angular_z = f2 * (pixel_gap * P_GAIN + (pixel_gap - pre_pixel_gap) * D_GAIN) + f1 * angular_z;
+      angular_z = f2 * (pixel_gap * P_GAIN2 + (pixel_gap - pre_pixel_gap) * D_GAIN2) + f1 * angular_z;
       if (angular_z > max_angle) {
         angular_z = max_angle;
       } else if (angular_z < -max_angle) {
@@ -321,7 +337,7 @@ void RobitDriving::lineTracing2(double speed) {
     pre_pixel_gap = 0;
   }
 
-  angular_z = f2 * (pixel_gap * P_GAIN + (pixel_gap - pre_pixel_gap) * D_GAIN) + f1 * angular_z;
+  angular_z = f2 * (pixel_gap * P_GAIN2 + (pixel_gap - pre_pixel_gap) * D_GAIN2) + f1 * angular_z;
 
   if (angular_z > max_angle) {
     angular_z = max_angle;
@@ -454,7 +470,7 @@ void RobitDriving::crossMotion() {
   switch (cross_info_) {
     case WAIT:
       std::cout << "Waiting at intersection" << std::endl;
-      setSpeed(0.0, 0);
+      setSpeed(0.002, 0.0);
       break;
     case TURN_LEFT:
       std::cout << "Turning left" << std::endl;
@@ -466,19 +482,19 @@ void RobitDriving::crossMotion() {
       break;
     case DRIVE:
       std::cout << "Driving straight" << std::endl;
-      lineTracing(0.08);
+      lineTracing(0.18);
       break;
     case CROSS_END_LEFT:
       std::cout << "Cross end left" << std::endl;
-      setSpeed(0.08, 0.3);
+      setSpeed(0.05, 0.3);
       break;
     case CROSS_END_RIGHT:
       std::cout << "Cross end right" << std::endl;
-      setSpeed(0.08, -0.3);
+      setSpeed(0.06, -0.3);
       break;
     case CROSS_END:
       std::cout << "Cross end" << std::endl;
-      lineTracing(0.15);
+      lineTracing(0.24);
       master_msg_.cross_done = true;
       break;
   }
@@ -492,11 +508,11 @@ void RobitDriving::constructMotion() {
       break;
     case LEFT__:
       std::cout << "LEFT__" << std::endl;
-      lineTracing2(0.13);
+      lineTracing2(0.10);
       break;
     case LEFT_C1:
       std::cout << "LEFT_C1" << std::endl;
-      lineTracing3(0.13);
+      lineTracing3(0.10);
       break;
       //   case LEFT__:
       //     std::cout << "Constructing left__" << std::endl;
@@ -515,7 +531,7 @@ void RobitDriving::constructMotion() {
       //     break;
     case FRONT_C3:
       std::cout << "Constructing front C3" << std::endl;
-      lineTracing(0.10);
+      lineTracing(0.1);  // lineTracing3(0.03);
       break;
     case CONSTRUCT_END:
       std::cout << "Construction end" << std::endl;
@@ -529,19 +545,19 @@ void RobitDriving::parkingMotion() {
   switch (parking_info_) {
     case GO_P1:
       std::cout << "Parking detect_1" << std::endl;
-      lineTracing(0.10);  //
+      lineTracing(0.1);  //
       break;
     case GO_P2:
       std::cout << "Parking detect_2" << std::endl;
-      setSpeed(0.2, 0);
+      lineTracing(0.1);  // setSpeed(0.08, 0);
       break;
     case LEFT_P1:
       std::cout << "Parking left" << std::endl;
-      setSpeed(0.0, -0.3);
+      setSpeed(0.04, 0.3);
       break;
     case GO_P3:
       std::cout << "Parking linetracing" << std::endl;
-      lineTracing(0.18);
+      lineTracing(0.10);
       break;
     case TURN2L:
       std::cout << "Parking turn left" << std::endl;
@@ -557,23 +573,24 @@ void RobitDriving::parkingMotion() {
       break;
     case TURN3L:
       std::cout << "Parking turn left" << std::endl;
-      setSpeed(0.1, -0.5);
+      setSpeed(0.07, -0.3);
       break;
     case TURN3R:
       std::cout << "Parking turn right" << std::endl;
-      setSpeed(0.1, 0.5);
+      setSpeed(0.07, 0.3);
       break;
     case GO_P4:
       std::cout << "Parking linetracing" << std::endl;
-      lineTracing(0.18);
+      lineTracing(0.15);
       break;
     case LEFT_P2:
       std::cout << "Parking left" << std::endl;
-      setSpeed(0, 0);
+      setSpeed(0.04, 0.3);
       // setSpeed(0.1, 0.5);
       break;
     case PARKING_END:
       std::cout << "Parking end" << std::endl;
+      lineTracing(0.12);
       master_msg_.parking_done = true;
 
     default:

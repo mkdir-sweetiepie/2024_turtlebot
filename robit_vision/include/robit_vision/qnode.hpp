@@ -43,7 +43,7 @@ class QNode : public QThread {
   static constexpr int PSD_SENSORS = 3;
 
   std::string packagePath = "/home/hyeon/ros2_ws/src/2024_turtlebot/robit_vision/txt_data";  // robotis
-  enum { left, right };
+  enum { right, left };
  protected:
   void run() override;
 

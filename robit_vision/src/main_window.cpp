@@ -36,7 +36,6 @@ void MainWindow::setupConnections() {
   connect(&qnode->robit_vision, &Vision::yellow_line_callback, this, &MainWindow::updateYellowEdgeImg);
   connect(&qnode->robit_vision, &Vision::traffic_callback, this, &MainWindow::updateTrafficImg);
   connect(&qnode->robit_vision, &Vision::bluesignDetected, this, &MainWindow::updateBluesignImg);
-
   connect(&qnode->robit_vision, &Vision::gatebar_callback, this, &MainWindow::updateGatebarImg);
 }
 
@@ -69,7 +68,7 @@ void MainWindow::updateImage(const cv::Mat& image) {
     cv::Mat resized, resized2;
     cv::resize(image, resized, cv::Size(320, 240), 0, 0, cv::INTER_CUBIC);
     cv::resize(image, resized2, cv::Size(640, 480), 0, 0, cv::INTER_CUBIC);
-    
+
     QImage qimage(resized.data, resized.cols, resized.rows, QImage::Format_RGB888);
     QImage qimage2(resized2.data, resized2.cols, resized2.rows, QImage::Format_RGB888);
     ui->label_raw_image->setPixmap(QPixmap::fromImage(qimage));
@@ -225,13 +224,13 @@ void MainWindow::on_Save_clicked() {
 // 미션의 순서와 기준 IMU를 지정 후 txt로 저장함.
 void MainWindow::on_mission_confirm_clicked() {
   for (int i = 0; i < 6; i++) {
-    QTableWidgetItem *theItem = ui->mission_set->item(i, 0);
+    QTableWidgetItem* theItem = ui->mission_set->item(i, 0);
     QString sequence = theItem->text();
     Vision::mission_sequence[i] = sequence.toInt();
   }
 
   for (int i = 0; i < 6; i++) {
-    QTableWidgetItem *theItem = ui->mission_set->item(i, 1);
+    QTableWidgetItem* theItem = ui->mission_set->item(i, 1);
     QString start_imu = theItem->text();
     Vision::start_imu[i] = start_imu.toInt();
   }
@@ -354,6 +353,5 @@ void MainWindow::on_bluesign_clicked() {
   click_flag = 5;
   update_label();
 }
-
 
 }  // namespace robit_vision

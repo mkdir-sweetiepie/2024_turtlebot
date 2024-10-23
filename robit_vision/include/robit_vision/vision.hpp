@@ -24,7 +24,7 @@ extern const cv::Scalar Skyblue;
 extern const cv::Scalar Mint;
 }  // namespace vision_colors
 
-enum class MissionType { CROSS, CONSTRUCT, PARKING, ZIGZAG, GATEBAR, TUNNEL };
+enum class MissionType { CROSS, CONSTRUCT, PARKING, GATEBAR, TUNNEL };
 // enum class CrossDirection { NONE, LEFT, RIGHT };
 
 class Vision : public QObject {
@@ -71,7 +71,7 @@ class Vision : public QObject {
   static int cross_condition;
   static bool cross_step[5];
 
-  bool cross_start;
+  static bool cross_start;
   // int direction_counter;
 
   // std::atomic<bool> direction_flag;
@@ -82,14 +82,24 @@ class Vision : public QObject {
   static int construct_condition;
   static bool construct_start;
   static bool construct_step[6];
-  bool construct_flag = false;
+  int construct_flag = 0;
+  int cnt_cross = 0;
 
   // parking
   static bool parking_detect;
   static int parking_condition;
   static bool parking_step[9];
   static bool rotate;
-  int cnt;
+  static int cnt;
+  static int cnt2;
+  static bool ctrl_timer;
+
+  // zigzag
+  static bool zigzag_detect;
+  static bool zigzag_condition;
+  // gatebar
+  static bool gatebar_detect;
+  static bool gatebar_start;
 
   static int just_before_tunnel_num;
   static int white_line_blob_y, white_line_blob_x;
@@ -107,8 +117,13 @@ class Vision : public QObject {
   int blue_x, blue_y;
   int sign_state;
   std::string sign_value;
-  enum { left, right };
+  enum { right, left };
   static bool sign_once, sign_twice, cross_flag, process_flag[3], direction, follow_bluesign;
+  enum Direction { LEFT, RIGHT };
+  enum CrossCondition { APPROACHING, YELLOW_SIGN_PASSED, BLUE_SIGN_DETECTING, TURN_LEFT, TURN_RIGHT, DRIVE, CROSS_END_LEFT, CROSS_END_RIGHT, CROSS_END };
+  enum ConstructCondition { SLOW, LEFT__, LEFT_C1, FRONT_C1, FRONT_C2, FRONT_C3, CONSTRUCT_END };
+  enum ParkingCondition { GO_P1, GO_P2, LEFT_P1, GO_P3, DETECT, TURN2L, TURN2R, BACK, TURN3L, TURN3R, GO_P4, LEFT_P2, PARKING_END };
+  enum MissionSequence { M_CROSS, M_CONSTRUCT, M_PARKING, M_ZIGZAG, M_GATEBAR, M_TUNNEL };
 
  Q_SIGNALS:
   void perspective_callback(const cv::Mat &perspective_img);
@@ -127,27 +142,12 @@ class Vision : public QObject {
   void Cross_Process();
   void Construct_Process();
   void Parking_Process();
-  unsigned long parking_escape_bluesign(const cv::Mat &input_img);
-  void Finding_Gatebar(cv::Mat &input_img);
+  void Zigzag_Process();
+  void Finding_Gatebar(const cv::Mat &raw_image, cv::Mat &input_img);
 
   static int traffic_action;
 
-  static bool zigzag_detect;
-  static bool slow_zone;
-  static bool gatebar_detect;
-  static int gatebar_count;
-  static bool gatebar_on;
-  static bool gatebar_once;
-  static bool bar_cnt_once;
-  static bool bar_jjinmak;
-
   void setLed(bool _led1, bool _led2, bool _led3, bool _led4, bool _led5, bool _led6);
-
-  enum Direction { LEFT, RIGHT };
-  enum CrossCondition { APPROACHING, YELLOW_SIGN_PASSED, BLUE_SIGN_DETECTING, TURN_LEFT, TURN_RIGHT, DRIVE, CROSS_END_LEFT, CROSS_END_RIGHT, CROSS_END };
-  enum ConstructCondition { SLOW, LEFT__, LEFT_C1, FRONT_C1, FRONT_C2, FRONT_C3, CONSTRUCT_END };
-  enum ParkingCondition { GO_P1, GO_P2, LEFT_P1, GO_P3, DETECT, TURN2L, TURN2R, BACK, TURN3L, TURN3R, GO_P4, LEFT_P2, PARKING_END };
-  enum MissionSequence { M_CROSS, M_CONSTRUCT, M_PARKING, M_ZIGZAG, M_GATEBAR, M_TUNNEL };
 };
 
 class VisionLine {

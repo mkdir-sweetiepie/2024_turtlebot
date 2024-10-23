@@ -9,30 +9,31 @@
 #include "robit_msgs/msg/vision_msg.hpp"
 
 #define mode3  // mode1 : slow, mode2 : normal, mode3 : fast
-
 #ifdef mode3
 #define Linear_MAX 0.90
 #define LINE_TURN_GAIN 0.045
-#define STRAIGHT_GAIN 0.095
-#define LEFT_CURVE_GAIN 0.5
-#define RIGHT_CURVE_GAIN 0.5
-#define P_GAIN 1.0
-#define D_GAIN 6.0
+#define STRAIGHT_GAIN 0.1
+#define LEFT_CURVE_GAIN 0.047
+#define RIGHT_CURVE_GAIN 0.05
+#define P_GAIN 1.0 // 1.0
+#define D_GAIN 6.0  // 6.0
 #define STRAIGHT_LINEAR_INCRESE_GAIN 0.1
 #define STRAIGHT_LINEAR_DECRESE_GAIN 0.08
 
-#define LEFT_CURVE_GAIN2 0.15
-#define RIGHT_CURVE_GAIN2 0.8
+#define LEFT_CURVE_GAIN2 0.2
+#define RIGHT_CURVE_GAIN2 0.9
 #define STRAIGHT_LINEAR_INCRESE_GAIN2 0.001
 #define STRAIGHT_LINEAR_DECRESE_GAIN2 0.001
+#define P_GAIN2 1.0  // 1.0
+#define D_GAIN2 6.0  // 6.0
 
-#define LEFT_CURVE_GAIN3 0.9
-#define RIGHT_CURVE_GAIN3 0.9
+#define LEFT_CURVE_GAIN3 0.2
+#define RIGHT_CURVE_GAIN3 0.2
 #endif
 
-#define ANGULAR_LINEAR_RATE3 5
-#define ANGULAR_LINEAR_RATE2 3
-#define ANGULAR_LINEAR_RATE 2
+#define ANGULAR_LINEAR_RATE3 2
+#define ANGULAR_LINEAR_RATE2 4
+#define ANGULAR_LINEAR_RATE 3
 #define ANGLE_PIXEL_RATE 0.7
 #define MAX_REVERSE 2.0
 
@@ -107,8 +108,10 @@ class RobitDriving {
   bool parking_detect_ = false;
   int parking_info_;
   bool zigzag_detect_ = false;
+  bool zigzag_info_;
   bool slow_zone_;
   bool gatebar_detect_ = false;
+  bool gatebar_condition_;
   int just_before_tunnel_num_;
 
   enum Situation { NONE = 0, TRAFFIC, CROSS, CONSTRUCT, PARKING, ZIGZAG, GATEBAR, TUNNEL };

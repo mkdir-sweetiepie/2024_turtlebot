@@ -102,10 +102,11 @@ void QNode::processReceivedImage(const cv::Mat& image) {
     robit_vision.Follow_bluesign(raw_img);
   }
 
-  if (Vision::cross_step[0]) {
-    Vision::cross_condition = 0;  // cross stop
-  }
+  // if (Vision::cross_step[0]) {
+  //   Vision::cross_condition = 0;  // cross stop
+  // }
   if (Vision::cross_step[1]) {  // cross detect
+
     if (robit_vision.sign_condition[left]) {
       Vision::cross_condition = 1;
     } else if (robit_vision.sign_condition[right]) {
@@ -186,6 +187,7 @@ void QNode::processReceivedImage(const cv::Mat& image) {
   if (Vision::parking_step[8]) {
     Vision::parking_condition = 12;  // left
   }
+
   robit_vision.START(image);
   vision_pub->publish(robit_vision.Vision_msg);
   Q_EMIT imageReceived(image);
@@ -311,7 +313,7 @@ void QNode::psdCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg) {
 
 void QNode::buttonCallback(std_msgs::msg::Int8MultiArray::SharedPtr msg) {
   if (msg->data.size() == 8) {
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 0; ++i) {
       if (msg->data[i + 2] == 1) {
         Vision::retry = i + 1;
         robit_vision.Retry_Button();
