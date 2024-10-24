@@ -97,7 +97,6 @@ void QNode::processReceivedImage(const cv::Mat& image) {
   //   auto img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", image).toImageMsg();
   //   pubImage->publish(*img_msg);
   // }
-
   if (robit_vision.cross_start) {
     robit_vision.Follow_bluesign(raw_img);
   }
@@ -315,8 +314,8 @@ void QNode::buttonCallback(std_msgs::msg::Int8MultiArray::SharedPtr msg) {
   if (msg->data.size() == 8) {
     for (int i = 0; i < 0; ++i) {
       if (msg->data[i + 2] == 1) {
-        Vision::retry = i + 1;
-        robit_vision.Retry_Button();
+        // Vision::retry = i + 1;
+        // robit_vision.Retry_Button();
         std::array<bool, 6> led_states{};
         led_states[i] = true;
         for (int j = 0; j < 6; ++j) {

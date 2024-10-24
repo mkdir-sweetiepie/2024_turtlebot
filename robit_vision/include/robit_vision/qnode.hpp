@@ -14,7 +14,6 @@
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-#include "image_recognition_msgs/msg/bounding_box_msgs.hpp"
 #include "robit_msgs/msg/master_msg.hpp"
 #include "robit_msgs/msg/vision_msg.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -64,8 +63,6 @@ class QNode : public QThread {
   rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr subPsd;
   rclcpp::Subscription<std_msgs::msg::Int8MultiArray>::SharedPtr subButton;
   rclcpp::Subscription<std_msgs::msg::UInt32>::SharedPtr subImu;
-  rclcpp::Subscription<image_recognition_msgs::msg::BoundingBoxMsgs>::SharedPtr subBBX;
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subYoloImage;
 
   void initPubSub();
   void initUdpSocket();

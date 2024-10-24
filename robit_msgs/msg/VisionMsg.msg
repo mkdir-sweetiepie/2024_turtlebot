@@ -22,7 +22,7 @@ bool zigzag_detect
 bool zigzag_info
 ##gatebar
 bool gatebar_detect
-bool gatebar_go
+bool gatebar_info
 ##tunnel
 int32 just_before_tunnel_num
 
@@ -31,11 +31,4 @@ int32 rel_angle
 float64 rel_angle_ratio
 
 #mission
-int32 retry
 int32[6] mission_sequence
-
-
-
-
-
-

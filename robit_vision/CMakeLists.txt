@@ -20,7 +20,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(robit_msgs REQUIRED)
-find_package(image_recognition_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 
 
@@ -52,7 +51,6 @@ ament_target_dependencies(${PROJECT_NAME}
   cv_bridge
   image_transport
   robit_msgs
-  image_recognition_msgs
 )
 
 target_link_libraries(${PROJECT_NAME}

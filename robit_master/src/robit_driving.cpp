@@ -10,7 +10,12 @@ bool RobitDriving::start2024_ = false;
 int RobitDriving::cds_data_ = 0;
 int RobitDriving::direction_angle_ = 0;
 
-RobitDriving::RobitDriving() : button_click_(false), bar_count_(0), situation_(NONE), tunnel_starts_(false), navi_on_(false), now_mission_(0) {
+bool RobitDriving::tunnel_starts = false;
+bool RobitDriving::navi_on_ = false;
+bool RobitDriving::rviz_init = false;
+robit_msgs::msg::SimpleMoveMsg RobitDriving::Simple_msg_;
+
+RobitDriving::RobitDriving() : button_click_(false), bar_count_(0), situation_(NONE) {
   master_msg_.traffic_done = false;
   master_msg_.cross_done = false;
   master_msg_.gatebar_done = false;
@@ -56,17 +61,23 @@ void RobitDriving::go() {
           lineTracing(0.05);
           std::cout << "zigzag done" << std::endl;
         }
-
         break;
       case GATEBAR:
         bar_count_++;
         lineTracing(0.05);
         std::cout << "gatebar" << std::endl;
-        if (gatebar_condition_ == 0) {
+        if (gatebar_info_ == 0) {
           setSpeed(0.0, 0.0);
           std::cout << "gatebar done" << std::endl;
-        } else if(gatebar_condition_ )
-          lineTracing(0.2);
+        } else if (gatebar_info_) {
+          cnt++;
+          if (cnt < 30) {
+            std::cout << cnt << std::endl;
+            lineTracing(0.1);
+          } else
+            lineTracing(0.20);
+          master_msg_.gatebar_done = true;
+        }
         break;
       default:
         break;
@@ -87,54 +98,8 @@ void RobitDriving::analyzeSituation() {
     situation_ = GATEBAR;
   } else if (master_msg_.zigzag_done && gatebar_detect_ == 0) {
     lineTracing(0.05);
-  }
-  else {
+  } else {
     situation_ = NONE;
-  }
-}
-
-void RobitDriving::retry() {
-  if (Vision_msg_.retry > 0) {
-    // 크로스 미션 재설정
-    if (Vision_msg_.retry <= mission_sequence_[CROSS]) {
-      master_msg_.cross_done = false;
-      cross_condition_ = 0;
-    }
-
-    // 건설 구간 미션 재설정
-    if (Vision_msg_.retry <= mission_sequence_[CONSTRUCT]) {
-      master_msg_.construct_done = false;
-      construct_condition_ = 0;
-    }
-
-    // 주차 미션 재설정
-    if (Vision_msg_.retry <= mission_sequence_[PARKING]) {
-      master_msg_.parking_done = false;
-      parking_condition_ = 0;
-    }
-    // 차단바 미션 재설정
-    if (Vision_msg_.retry <= mission_sequence_[GATEBAR]) {
-      master_msg_.gatebar_done = false;
-      bar_count_ = 0;
-    }
-
-    // 터널 미션 재설정
-    if (Vision_msg_.retry <= mission_sequence_[TUNNEL]) {
-      master_msg_.tunnel_done = false;
-      tunnel_starts_ = false;
-    }
-
-    // 공통 상태 재설정
-    start2024_ = false;
-    situation_ = NONE;
-
-    // 현재 미션 번호 업데이트
-    now_mission_ = Vision_msg_.retry;
-
-    // 모터 정지
-    setSpeed(0.0, 0.0);
-
-    std::cout << "Retry initiated. Current mission: " << now_mission_ << std::endl;
   }
 }
 
@@ -162,15 +127,9 @@ void RobitDriving::updateParameters(const std::shared_ptr<const robit_msgs::msg:
   zigzag_detect_ = Vision_msg_.zigzag_detect;
   zigzag_info_ = Vision_msg_.zigzag_info;
   gatebar_detect_ = Vision_msg_.gatebar_detect;
-  gatebar_condition_ = Vision_msg_.gatebar_go;
+  gatebar_info_ = Vision_msg_.gatebar_info;
   just_before_tunnel_num_ = Vision_msg_.just_before_tunnel_num;
 
-  // // 차단바 미션 진입하기 전에 일부러 천천히 달리는 조건문임. 너무 빨리 달리다가
-  // // 차단바 내려오면 반응 못하고 부딪힘.
-  // if (bar_count_ > 0 && !Vision_msg_.gatebar_detect && !master_msg_.gatebar_done) {
-  //   master_msg_.gatebar_done = true;
-  //   setSpeed(0.10, 0.0);
-  // 
   // IMU 관련 정보 업데이트
   rel_angle_ = Vision_msg_.rel_angle;
   rel_angle_ratio_ = Vision_msg_.rel_angle_ratio;
@@ -179,10 +138,17 @@ void RobitDriving::updateParameters(const std::shared_ptr<const robit_msgs::msg:
   for (int i = 0; i < 6; i++) {
     mission_sequence_[i] = Vision_msg_.mission_sequence[i];
   }
-  retry_ = Vision_msg_.retry;
 
   button_click_ = button_clicked;
 
+  // if (master_msg_.gatebar_done && !navi_on_) {
+  //   std::cout << "!!!!now rviz on!!!! : " << std::endl;
+  //   rviz_init = true;
+  //   navi_on_ = true;
+  // }
+  // if (navi_on_) {
+  //   lineTracing(0.2);
+  // }
   // 상황 분석 실행
   analyzeSituation();
 }
@@ -449,22 +415,6 @@ void RobitDriving::lineTracing3(double speed) {
   pre_pixel_gap = pixel_gap;
 }
 
-bool RobitDriving::imuTurn() {
-  double imu_gap, angular_spd;
-  imu_gap = fabs(target_imu_ - Vision_msg_.rel_angle);
-  if (fabs(imu_gap) > 180) imu_gap = 360 - fabs(imu_gap);
-  angular_spd = imu_gap * 0.025 * 2;
-  if (target_spd_ < 0) angular_spd *= -1;
-  if ((target_spd_ > 0 && angular_spd > target_spd_) || (target_spd_ < 0 && angular_spd < target_spd_)) angular_spd = target_spd_;
-  if (fabs(imu_gap) < 3) {
-    setSpeed(0.0, 0.0);
-    return false;
-  } else {
-    setSpeed(0.0, angular_spd);
-    return true;
-  }
-}
-
 void RobitDriving::crossMotion() {
   std::cout << "Cross motion: cross_info=" << cross_info_ << ", rel_angle=" << Vision_msg_.rel_angle << std::endl;
   switch (cross_info_) {
@@ -478,7 +428,7 @@ void RobitDriving::crossMotion() {
       break;
     case TURN_RIGHT:
       std::cout << "Turning right" << std::endl;
-      setSpeed(0.04, -0.2);
+      setSpeed(0.05, -0.2);
       break;
     case DRIVE:
       std::cout << "Driving straight" << std::endl;
@@ -494,7 +444,7 @@ void RobitDriving::crossMotion() {
       break;
     case CROSS_END:
       std::cout << "Cross end" << std::endl;
-      lineTracing(0.24);
+      lineTracing(0.2);
       master_msg_.cross_done = true;
       break;
   }
@@ -504,11 +454,11 @@ void RobitDriving::constructMotion() {
   switch (construct_info_) {
     case SLOW:
       std::cout << "Slowing down" << std::endl;
-      lineTracing(0.15);
+      lineTracing(0.10);
       break;
     case LEFT__:
       std::cout << "LEFT__" << std::endl;
-      lineTracing2(0.10);
+      lineTracing2(0.12);
       break;
     case LEFT_C1:
       std::cout << "LEFT_C1" << std::endl;
@@ -531,7 +481,7 @@ void RobitDriving::constructMotion() {
       //     break;
     case FRONT_C3:
       std::cout << "Constructing front C3" << std::endl;
-      lineTracing(0.1);  // lineTracing3(0.03);
+      lineTracing(0.10);  // lineTracing3(0.03);
       break;
     case CONSTRUCT_END:
       std::cout << "Construction end" << std::endl;
@@ -545,15 +495,15 @@ void RobitDriving::parkingMotion() {
   switch (parking_info_) {
     case GO_P1:
       std::cout << "Parking detect_1" << std::endl;
-      lineTracing(0.1);  //
+      lineTracing(0.1);   //
       break;
     case GO_P2:
       std::cout << "Parking detect_2" << std::endl;
-      lineTracing(0.1);  // setSpeed(0.08, 0);
+      lineTracing(0.1);   // lineTracing(0.1);  // setSpeed(0.08, 0);
       break;
     case LEFT_P1:
       std::cout << "Parking left" << std::endl;
-      setSpeed(0.04, 0.3);
+      setSpeed(0.05, 0.3);
       break;
     case GO_P3:
       std::cout << "Parking linetracing" << std::endl;
@@ -585,12 +535,12 @@ void RobitDriving::parkingMotion() {
       break;
     case LEFT_P2:
       std::cout << "Parking left" << std::endl;
-      setSpeed(0.04, 0.3);
+      setSpeed(0.045, 0.3);
       // setSpeed(0.1, 0.5);
       break;
     case PARKING_END:
       std::cout << "Parking end" << std::endl;
-      lineTracing(0.12);
+      lineTracing(0.2);
       master_msg_.parking_done = true;
 
     default:

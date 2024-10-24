@@ -5,7 +5,6 @@
 
 #include <QObject>
 #include <atomic>
-#include <image_recognition_msgs/msg/bounding_box_msgs.hpp>
 #include <opencv2/opencv.hpp>
 #include <robit_msgs/msg/master_msg.hpp>
 #include <robit_msgs/msg/vision_msg.hpp>
@@ -37,7 +36,6 @@ class Vision : public QObject {
   void START(const cv::Mat &input_img);
   void Update_Message();
   void update_parameter(const std::shared_ptr<const robit_msgs::msg::MasterMsg> &master_data);
-  void Retry_Button();
 
   static void Perspective_View(const cv::Mat &input_img, cv::Mat &output_img);
   static void Perspective_View2(const cv::Mat &input_img, cv::Mat &output_img);
@@ -45,7 +43,6 @@ class Vision : public QObject {
 
   static robit_msgs::msg::VisionMsg Vision_msg;
   static robit_msgs::msg::MasterMsg Master_msg;
-  static image_recognition_msgs::msg::BoundingBoxMsgs BBX_msg;
 
   static constexpr int RAW_X = 320;
   static constexpr int RAW_Y = 240;
@@ -63,7 +60,6 @@ class Vision : public QObject {
   static int start_imu[6];
   static double rel_angle_ratio;
   static int now_mission;
-  static int retry;
   static int mission_sequence[MISSION_COUNT];
 
   // cross

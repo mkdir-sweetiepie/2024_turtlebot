@@ -24,7 +24,6 @@ int Vision::direction_angle = 0, Vision::rel_zero_angle = 0, Vision::rel_angle =
 int Vision::start_imu[6] = {90, 0, 180, 0, 180, 0};
 double Vision::rel_angle_ratio = 0;
 int Vision::now_mission = 1;
-int Vision::retry = 0;
 int Vision::mission_sequence[Vision::MISSION_COUNT] = {1, 2, 3, 4, 5, 6};
 
 // cross
@@ -136,7 +135,7 @@ void Vision::Update_Message() {
   Vision_msg.zigzag_detect = zigzag_detect;
   Vision_msg.zigzag_info = zigzag_condition;
   Vision_msg.gatebar_detect = gatebar_detect;
-  Vision_msg.gatebar_go = gatebar_start;
+  Vision_msg.gatebar_info = gatebar_start;
   Vision_msg.just_before_tunnel_num = just_before_tunnel_num;
 
   Vision_msg.rel_angle = rel_angle;
@@ -145,8 +144,6 @@ void Vision::Update_Message() {
   for (int i = 0; i < MISSION_COUNT; ++i) {
     Vision_msg.mission_sequence[i] = mission_sequence[i];
   }
-  Vision_msg.retry = retry;
-  retry = 0;
 }
 
 void Vision::update_parameter(const std::shared_ptr<const robit_msgs::msg::MasterMsg> &master_data) {
@@ -208,68 +205,6 @@ void Vision::Change_to_Binary(const cv::Mat &input_img, cv::Mat &output_img, con
     cv::erode(output_img, output_img, mask1, cv::Point(-1, -1), 2);
     cv::dilate(output_img, output_img, mask2, cv::Point(-1, -1), 2);
   }
-}
-
-void Vision::Retry_Button() {
-  rel_ctrl = false;
-  timer_ctrl = false;
-
-  if (retry <= mission_sequence[M_CROSS]) {
-    if (retry == mission_sequence[M_CROSS]) {
-      std::cout << "!!!!!!!!cross again!!!!!!!!!" << std::endl;
-    }
-    cross_detect = false;
-    cross_condition = 0;
-    cross_start = false;
-
-    for (int i = 0; i < 4; ++i) {
-      cross_step[i] = false;
-    }
-  }
-
-  if (retry <= mission_sequence[M_CONSTRUCT]) {
-    if (retry == mission_sequence[M_CONSTRUCT]) {
-      std::cout << "!!!!!!!!construct again!!!!!!!!!" << std::endl;
-    }
-    construct_detect = false;
-    construct_condition = 0;
-    construct_start = false;
-    for (int i = 0; i < 5; ++i) {
-      construct_step[i] = false;
-    }
-  }
-
-  if (retry <= mission_sequence[M_PARKING]) {
-    if (retry == mission_sequence[M_PARKING]) {
-      std::cout << "!!!!!!!!parking again!!!!!!!!!" << std::endl;
-    }
-    parking_detect = false;
-    parking_condition = 0;
-    for (int i = 0; i < 7; ++i) {
-      parking_step[i] = false;
-    }
-  }
-  if (retry <= mission_sequence[M_ZIGZAG]) {
-    if (retry == mission_sequence[M_ZIGZAG]) {
-      std::cout << "!!!!!!!!zigzag again!!!!!!!!!" << std::endl;
-    }
-  }
-
-  if (retry <= mission_sequence[M_GATEBAR]) {
-    if (retry == mission_sequence[M_GATEBAR]) {
-      std::cout << "!!!!!!!!gatebar again!!!!!!!!!" << std::endl;
-    }
-    gatebar_detect = false;
-    gatebar_start = false;
-  }
-
-  if (retry <= mission_sequence[M_TUNNEL]) {
-    if (retry == mission_sequence[M_TUNNEL]) {
-      std::cout << "!!!!!!!!tunnel again!!!!!!!!!" << std::endl;
-    }
-  }
-
-  now_mission = retry;
 }
 
 void Vision::finding_traffic_lights(const cv::Mat &raw_image, cv::Mat &draw_image) {
@@ -500,6 +435,7 @@ void Vision::Follow_bluesign(cv::Mat &input_img) {
   }
 }
 
+
 void Vision::Construct_Process() {
   static ConstructCondition construct_condition = ConstructCondition::SLOW;
 
@@ -550,7 +486,7 @@ void Vision::Construct_Process() {
         break;
       case ConstructCondition::LEFT_C1:
         if (rel_angle > 140 && rel_angle < 190) {
-          update_led(2);
+          update_led(3);
           // std::cout << "Construct front C3" << std::endl;
           construct_step[4] = true;
           construct_condition = ConstructCondition::FRONT_C3;
@@ -597,14 +533,13 @@ void Vision::Construct_Process() {
       //   break;
       case ConstructCondition::FRONT_C3:
         if (VisionLine::l_line_detect && VisionLine::r_line_detect) {
-          update_led(3);
+          update_led(4);
           std::cout << "Construct front C3" << std::endl;
           construct_step[5] = true;
           construct_condition = ConstructCondition::CONSTRUCT_END;
         }
         break;
       case ConstructCondition::CONSTRUCT_END:
-        update_led(4);
         update_led(5);
         std::cout << "Construct end" << std::endl;
         now_mission++;
@@ -659,7 +594,7 @@ void Vision::Parking_Process() {
 
       case ParkingCondition::TURN2L:
       case ParkingCondition::TURN2R:
-        if ((parking_condition == ParkingCondition::TURN2L && psd[1] > 400 || (parking_condition == ParkingCondition::TURN2R && psd[1] > 400))) {
+        if ((parking_condition == ParkingCondition::TURN2L && psd[1] > 400 && rel_angle <= 10) || (parking_condition == ParkingCondition::TURN2R && psd[1] > 400 && rel_angle >= 150)) {
           update_led(2);
           std::cout << "Parking turn" << std::endl;
           parking_step[4] = true;
@@ -848,8 +783,7 @@ void Vision::Finding_Gatebar(const cv::Mat &raw_image, cv::Mat &input_img) {
       gatebar_detect = true;
       std::cout << "Gatebar detected!" << std::endl;
     }
-  }
-  else if (Gatebar_labeling.blobs.empty() && gatebar_detect) {  // 블랍이 사라지고, 이전에 감지된 적이 있다면
+  } else if (Gatebar_labeling.blobs.empty() && gatebar_detect) {  // 블랍이 사라지고, 이전에 감지된 적이 있다면
     setLed(true, true, true, true, true, true);
     gatebar_start = true;
     now_mission++;

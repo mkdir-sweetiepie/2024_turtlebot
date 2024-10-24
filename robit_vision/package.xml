@@ -18,7 +18,6 @@
   <build_depend>cv_bridge</build_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>robit_msgs</build_depend>
-  <build_depend>image_recognition_msgs</build_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

@@ -15,13 +15,13 @@
 #define STRAIGHT_GAIN 0.1
 #define LEFT_CURVE_GAIN 0.047
 #define RIGHT_CURVE_GAIN 0.05
-#define P_GAIN 1.0 // 1.0
+#define P_GAIN 1.0  // 1.0
 #define D_GAIN 6.0  // 6.0
 #define STRAIGHT_LINEAR_INCRESE_GAIN 0.1
 #define STRAIGHT_LINEAR_DECRESE_GAIN 0.08
 
 #define LEFT_CURVE_GAIN2 0.2
-#define RIGHT_CURVE_GAIN2 0.9
+#define RIGHT_CURVE_GAIN2 0.05
 #define STRAIGHT_LINEAR_INCRESE_GAIN2 0.001
 #define STRAIGHT_LINEAR_DECRESE_GAIN2 0.001
 #define P_GAIN2 1.0  // 1.0
@@ -44,26 +44,33 @@ class RobitDriving {
   RobitDriving();
   void go();
   void updateParameters(const std::shared_ptr<const robit_msgs::msg::VisionMsg>& vision_data, bool button_clicked);
-  bool imuTurn();
   void setSpeed(double linear, double angular);
-  void retry();
 
   robit_msgs::msg::MasterMsg master_msg_;
   robit_msgs::msg::VisionMsg Vision_msg_;
+  static robit_msgs::msg::SimpleMoveMsg Simple_msg_;
   geometry_msgs::msg::Twist motor_value_;
-
-  bool turn_on_;
-  double target_imu_;
-  double target_spd_;
-
-  int cross_condition_;
-  int construct_condition_;
-  int parking_condition_;
-  int now_mission_;
 
   static bool start2024_;
   static int cds_data_;
   static int direction_angle_;
+
+  static bool tunnel_starts;
+  static bool navi_on_;
+  static bool rviz_init;
+
+  bool traffic_detect_ = false;
+  bool cross_detect_ = false;
+  int cross_info_;
+  bool construct_detect_ = false;
+  int construct_info_;
+  bool parking_detect_ = false;
+  int parking_info_;
+  bool zigzag_detect_ = false;
+  bool zigzag_info_;
+  bool gatebar_detect_ = false;
+  bool gatebar_info_;
+  int just_before_tunnel_num_;
 
  private:
   void analyzeSituation();
@@ -86,33 +93,9 @@ class RobitDriving {
 
   int situation_;
   int mission_sequence_[6];
-  int retry_;
   int bar_count_;
-  bool zigzag_starts_;
-  bool tunnel_starts_;
-  bool navi_on_;
 
-  double min_angle_;
-  double max_angle_;
-  double min_linear_v_;
-  double max_linear_v_;
-
-  bool start_flag = false;
   int cnt = 0;
-
-  bool traffic_detect_ = false;
-  bool cross_detect_ = false;
-  int cross_info_;
-  bool construct_detect_ = false;
-  int construct_info_;
-  bool parking_detect_ = false;
-  int parking_info_;
-  bool zigzag_detect_ = false;
-  bool zigzag_info_;
-  bool slow_zone_;
-  bool gatebar_detect_ = false;
-  bool gatebar_condition_;
-  int just_before_tunnel_num_;
 
   enum Situation { NONE = 0, TRAFFIC, CROSS, CONSTRUCT, PARKING, ZIGZAG, GATEBAR, TUNNEL };
   enum CrossState { WAIT, TURN_LEFT, TURN_RIGHT, DRIVE, CROSS_END_LEFT, CROSS_END_RIGHT, CROSS_END };
